@@ -19,22 +19,55 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Подготовить файлы приложения
+        run: |
+          IDX=$(find . -name index.html -not -path "*/node_modules/*" -not -path "./app/*" | head -n 1)
+          if [ -z "$IDX" ]; then
+            echo "::error::Не найден файл index.html. Загрузите в репозиторий файл index.html из папки www."
+            exit 1
+          fi
+          echo "Нашёл: $IDX"
+          mkdir -p app/www
+          cp "$IDX" app/www/index.html
+          cd app
+          cat > package.json <<'EOF'
+          {
+            "name": "focus-player",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "6.2.0",
+              "@capacitor/cli": "6.2.0",
+              "@capacitor/core": "6.2.0"
+            }
+          }
+          EOF
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.focusplayer.app",
+            "appName": "Фокус Плеер",
+            "webDir": "www"
+          }
+          EOF
+
       - name: Установить Capacitor
+        working-directory: app
         run: npm install
 
       - name: Создать Android-проект
+        working-directory: app
         run: |
           npx cap add android
           npx cap sync android
 
       - name: Собрать APK
-        working-directory: android
+        working-directory: app/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
       - name: Переименовать APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk FocusPlayer.apk
+        run: cp app/android/app/build/outputs/apk/debug/app-debug.apk FocusPlayer.apk
 
       - uses: actions/upload-artifact@v4
         with:
